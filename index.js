@@ -1,11 +1,10 @@
 require('dotenv').config()
 const express = require('express')
 const mongoose = require('mongoose')
+const cors = require('cors')
 
 const app = express()
-const cors = require('cors')
 const mongoUri = process.env.MONGO_URI;
-
 
 app.use(cors())
 app.use(express.static('public'))
@@ -24,12 +23,24 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
 });
 
+
+// Schema User
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true }
 });
-
 const User = mongoose.model('User', userSchema);
 
+// Schema Exercise
+const exerciseSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  description: { type: String, required: true },
+  duration: { type: Number, required: true },
+  date: { type: Date, required: true }
+});
+const Exercise = mongoose.model('Exercise', exerciseSchema);
+
+
+// POST - Creare utilizator nou
 app.post('/api/users', async(req, res) => {
   const usernameTrimis = req.body.username;
 
@@ -38,13 +49,9 @@ app.post('/api/users', async(req, res) => {
   }
 
   try {
-    const utilizatorNou = new User({
-      username: usernameTrimis
-    });
-
+    const utilizatorNou = new User({ username: usernameTrimis });
     const utilizatorSalvat = await utilizatorNou.save();
 
-    // obiect json cu username si id generat de baza de date
     res.json({
       username: utilizatorSalvat.username,
       _id: utilizatorSalvat._id
@@ -75,16 +82,50 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
       return res.status(404).json({ error: "Utilizatorul nu a fost gasit." });
     }
 
+    const dataExercitiu = date ? new Date(date) : new Date();
+    
+    const exercitiuNou = new Exercise({
+      userId: utilizatorGasit._id,
+      description: description,
+      duration: parseInt(duration),
+      date: dataExercitiu
+    });
+
+    await exercitiuNou.save();
+
+    res.json({
+      _id: utilizatorGasit._id,
+      username: utilizatorGasit.username,
+      description: exercitiuNou.description,
+      duration: exercitiuNou.duration,
+      date: exercitiuNou.date.toDateString()
+    });
+    
+  } catch (eroare) {
+    console.error("Eroare la salvarea exercitiilor:", eroare);
+    res.status(500).json({ error: "Ceva nu a mers bine pe server." });
+  }
+});
+
+app.get('/api/users/:_id/logs', async (req, res) => {
+  const userId = req.params._id;
+  const { from, to, limit } = req.query; 
+
+  try {
+    const utilizatorGasit = await User.findById(userId);
+    if (!utilizatorGasit) {
+      return res.status(404).json({ error: "Utilizatorul nu a fost găsit." });
+    }
+
     let queryFiltrare = { userId: userId };
 
-    // daca utilizatorul a trimis filtre de data
     if (from || to) {
       queryFiltrare.date = {};
       if (from) {
-        queryFiltrare.date.$gte = new Date(from); // $gte = mai mare sau egal cu data 'from'
+        queryFiltrare.date.$gte = new Date(from);
       }
       if (to) {
-        queryFiltrare.date.$lte = new Date(to);   // $lte = mai mic sau egal cu data 'to'
+        queryFiltrare.date.$lte = new Date(to);
       }
     }
 
@@ -97,37 +138,24 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     const exercitiiGasite = await cautareExercitii.exec();
 
     const logFormatat = exercitiiGasite.map(ex => ({
-      description: ex.description,           
-      duration: ex.duration,                 
-      date: ex.date.toDateString()          
+      description: ex.description,
+      duration: ex.duration,
+      date: ex.date.toDateString()
     }));
-
-    const dataExercitiu = date ? new Date(date) : new Date();
-    
-    const exercitiuNou = new Exercise({
-        userId: utilizatorGasit._id,
-        description: description,
-        duration: parseInt(duration),
-        date: dataExercitiu
-      });
-
-    await exercitiuNou.save();
 
     res.json({
       _id: utilizatorGasit._id,
       username: utilizatorGasit.username,
-      count: exercitiiGasite.length,        
-      log: logFormatat                       
+      count: exercitiiGasite.length,
+      log: logFormatat
     });
-    
+
   } catch (eroare) {
-    console.error("Eroare la salvarea exercitiilor:", eroare);
-    res.status(500).json({ error: "Ceva nu a mers bine pe server." });
+    console.error("Eroare la preluarea log-urilor:", eroare);
+    res.status(500).json({ error: "A apărut o eroare pe server." });
   }
 });
 
-app.get('/api/users/:_id/logs')
-
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
-})
+});
