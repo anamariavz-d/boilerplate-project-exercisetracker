@@ -72,7 +72,6 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// POST - Adăugare exercițiu
 app.post('/api/users/:_id/exercises', async (req, res) => {
   const userId = req.params._id;
   const { description, duration, date } = req.body;
@@ -83,12 +82,12 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
       return res.status(404).json({ error: "Utilizatorul nu a fost gasit." });
     }
 
-    // Rezolvarea problemelor de formatare a datei pentru freeCodeCamp:
+   
     let dataExercitiu;
     if (!date || date.trim() === "") {
       dataExercitiu = new Date();
     } else {
-      // Înlocuim liniuțele cu slash-uri pentru a evita decalajele de fus orar (Timezone offset)
+      
       const parts = date.split('-');
       dataExercitiu = new Date(parts[0], parts[1] - 1, parts[2]);
     }
@@ -102,7 +101,6 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
 
     await exercitiuNou.save();
 
-    // Răspunsul exact pe care îl așteaptă testele
     res.json({
       _id: utilizatorGasit._id.toString(),
       username: utilizatorGasit.username,
@@ -125,12 +123,11 @@ app.get('/api/users/:_id/logs', async (req, res) => {
   try {
     const utilizatorGasit = await User.findById(userId);
     if (!utilizatorGasit) {
-      return res.status(404).json({ error: "Utilizatorul nu a fost găsit." });
+      return res.status(404).json({ error: "Utilizatorul nu a fost gasit." });
     }
 
     let queryFiltrare = { userId: userId };
 
-    // Validăm și adăugăm filtrele de dată
     if (from || to) {
       queryFiltrare.date = {};
       if (from) {
@@ -143,7 +140,6 @@ app.get('/api/users/:_id/logs', async (req, res) => {
 
     let cautareExercitii = Exercise.find(queryFiltrare);
 
-    // Ne asigurăm că limit este parsat corect ca număr
     if (limit) {
       cautareExercitii = cautareExercitii.limit(parseInt(limit));
     }
@@ -165,7 +161,7 @@ app.get('/api/users/:_id/logs', async (req, res) => {
 
   } catch (eroare) {
     console.error("Eroare la preluarea log-urilor:", eroare);
-    res.status(500).json({ error: "A apărut o eroare pe server." });
+    res.status(500).json({ error: "A aparut o eroare pe server." });
   }
 });
 
